@@ -32,6 +32,39 @@ module Spree
       auth_net_gateway.refund(amount, response_code, gateway_options)
     end
 
+    # 2018-02-04 11:01:39 AV
+    # ARAI > Dev > Credit Cards > Removal > Overriding Authorize.net gateway methods to only show non soft-deleted credit cards
+    def sources_by_order(order)
+      source_ids = order.payments.where(source_type: payment_source_class.to_s, payment_method_id: id).pluck(:source_id).uniq
+      payment_source_class.where(id: source_ids).with_payment_profile
+    end
+
+    # 2018-02-04 11:01:48 AV
+    # ARAI > Dev > Credit Cards > Removal > Overriding Authorize.net gateway methods to only show non soft-deleted credit cards
+    def reusable_sources(order)
+
+      logger.info "###############################"
+      logger.info "Inside reusable_sources"
+      logger.info Time.now.getlocal('-08:00')
+      logger.info "###############################"
+
+      if order.completed?
+        logger.info "Step 0"
+        sources_by_order order
+      else
+        if order.user_id
+          logger.info "Step 1"
+          # credit_cards.where(user_id: order.user_id).with_payment_profile
+          # credit_cards.where(user_id: order.user_id, soft_delete: false).with_payment_profile
+          @cc = credit_cards.where(user_id: order.user_id, soft_delete: false).with_payment_profile
+          return @cc
+        else
+          logger.info "Step 2"
+          []
+        end
+      end
+    end
+
     private
 
     def auth_net_gateway
