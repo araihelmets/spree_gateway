@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe "Stripe checkout", type: :feature do
+describe "Stripe checkout" do
   let!(:country) { create(:country, :states_required => true) }
   let!(:state) { create(:state, :country => country) }
   let!(:shipping_method) { create(:shipping_method) }
@@ -24,20 +24,13 @@ describe "Stripe checkout", type: :feature do
 
     order.reload
     order.user = user
-    order.update_with_updater!
+    order.update!
 
     Spree::CheckoutController.any_instance.stub(:current_order => order)
     Spree::CheckoutController.any_instance.stub(:try_spree_current_user => user)
     Spree::CheckoutController.any_instance.stub(:skip_state_validation? => true)
 
-    # Capybara should wait up to 10 seconds for async. changes to be applied
-    Capybara.default_max_wait_time = 10
-
     visit spree.checkout_state_path(:payment)
-    begin
-      setup_stripe_watcher
-    rescue Capybara::NotSupportedByDriverError
-    end
   end
 
   # This will pass the CC data to the server and the StripeGateway class handles it
@@ -46,9 +39,9 @@ describe "Stripe checkout", type: :feature do
     fill_in "Card Code", :with => "123"
     fill_in "Expiration", :with => "01 / #{Time.now.year + 1}"
     click_button "Save and Continue"
-    expect(page.current_url).to include("/checkout/confirm")
+    page.current_url.should include("/checkout/confirm")
     click_button "Place Order"
-    expect(page).to have_content("Your order has been processed successfully")
+    page.should have_content("Your order has been processed successfully")
   end
 
   # This will fetch a token from Stripe.com and then pass that to the webserver.
@@ -60,30 +53,24 @@ describe "Stripe checkout", type: :feature do
     fill_in "Card Code", :with => "123"
     fill_in "Expiration", :with => "01 / #{Time.now.year + 1}"
     click_button "Save and Continue"
-    wait_for_stripe # Wait for Stripe API to return + form to submit
-    expect(page).to have_css('#checkout_form_confirm')
-    expect(page.current_url).to include("/checkout/confirm")
+    sleep(5) # Wait for Stripe API to return + form to submit
+    page.current_url.should include("/checkout/confirm")
     click_button "Place Order"
-    expect(page).to have_content("Your order has been processed successfully")
+    page.should have_content("Your order has been processed successfully")
   end
 
   it "shows an error with an invalid credit card number", :js => true do
-    # Card number is NOT valid. Fails Luhn checksum
-    fill_in "Card Number", :with => "4242 4242 4242 4249"
     click_button "Save and Continue"
-    wait_for_stripe
-    expect(page).to have_content("Your card number is incorrect")
-    expect(page).to have_css('.has-error #card_number.error')
+    page.should have_content("The card number is not a valid credit card number")
+    page.should have_css('#card_number.error')
   end
 
   it "shows an error with invalid security fields", :js => true do
     fill_in "Card Number", :with => "4242 4242 4242 4242"
     fill_in "Expiration", :with => "01 / #{Time.now.year + 1}"
-    fill_in "Card Code", :with => "99"
     click_button "Save and Continue"
-    wait_for_stripe
-    expect(page).to have_content("Your card's security code is invalid.")
-    expect(page).to have_css('.has-error #card_code.error')
+    page.should have_content("Your card's security code is invalid.")
+    page.should have_css('#card_code.error')
   end
 
   it "shows an error with invalid expiry month field", :js => true do
@@ -91,9 +78,8 @@ describe "Stripe checkout", type: :feature do
     fill_in "Expiration", :with => "00 / #{Time.now.year + 1}"
     fill_in "Card Code", :with => "123"
     click_button "Save and Continue"
-    wait_for_stripe
-    expect(page).to have_content("Your card's expiration month is invalid.")
-    expect(page).to have_css('.has-error #card_expiry.error')
+    page.should have_content("Your card's expiration month is invalid.")
+    page.should have_css('#card_expiry.error')
   end
 
   it "shows an error with invalid expiry year field", :js => true do
@@ -101,8 +87,7 @@ describe "Stripe checkout", type: :feature do
     fill_in "Expiration", :with => "12 / "
     fill_in "Card Code", :with => "123"
     click_button "Save and Continue"
-    wait_for_stripe
-    expect(page).to have_content("Your card's expiration year is invalid.")
-    expect(page).to have_css('.has-error #card_expiry.error')
+    page.should have_content("Your card's expiration year is invalid.")
+    page.should have_css('#card_expiry.error')
   end
 end

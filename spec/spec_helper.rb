@@ -9,32 +9,28 @@ require 'rspec/rails'
 require 'rspec/active_model/mocks'
 require 'capybara/rspec'
 require 'capybara/rails'
-require 'capybara-screenshot/rspec'
-require "selenium-webdriver"
+require 'capybara/poltergeist'
 require 'database_cleaner'
 require 'ffaker'
 require 'rspec/active_model/mocks'
 
-Dir[File.join(File.dirname(__FILE__), "support", "**", "*.rb")].each { |f| require f }
+Dir[Rails.root.join("spec/support/**/*.rb")].each {|f| require f}
 
 require 'spree/testing_support/factories'
 require 'spree/testing_support/order_walkthrough'
 require 'spree/testing_support/preferences'
-require 'spree/testing_support/capybara_ext'
 
-FactoryBot.find_definitions
+FactoryGirl.find_definitions
 
 RSpec.configure do |config|
   config.infer_spec_type_from_file_location!
-  config.mock_with :rspec do |mock|
-    mock.syntax = [:should, :expect]
-  end
+  config.mock_with :rspec
   config.raise_errors_for_deprecations!
   config.use_transactional_fixtures = false
   #config.filter_run focus: true
   #config.filter_run_excluding slow: true
 
-  config.include FactoryBot::Syntax::Methods
+  config.include FactoryGirl::Syntax::Methods
   config.include Spree::TestingSupport::Preferences
 
   config.before :suite do
@@ -52,11 +48,5 @@ RSpec.configure do |config|
     DatabaseCleaner.clean
   end
 
-  Capybara.register_driver :chrome do |app|
-    Capybara::Selenium::Driver.new app,
-      browser: :chrome,
-      options: Selenium::WebDriver::Chrome::Options.new(args: %w[disable-popup-blocking headless disable-gpu window-size=1920,1080])
-  end
-
-  Capybara.javascript_driver = :chrome
+  Capybara.javascript_driver = :poltergeist
 end
